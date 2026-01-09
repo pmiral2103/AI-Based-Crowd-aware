@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intelligent Evacuation Guidance</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="app-container">
+        <header>
+            <div class="logo-section">
+                <h1>SmartRescue <span class="accent">AI</span></h1>
+                <p>Intelligent Evacuation Guidance System</p>
+            </div>
+            <div class="status-panel" id="statusPanel">
+                <span class="status-indicator safe">ALL CLEAR</span>
+            </div>
+        </header>
+
+        <main>
+            <div class="controls">
+                <div class="control-group">
+                    <label>Building Floor</label>
+                    <select id="floorSelect">
+                        <option value="1">Floor 1 (Lobby)</option>
+                        <option value="2">Floor 2 (Offices)</option>
+                        <option value="3">Floor 3 (Labs)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Simulation Mode</label>
+                    <div class="toggle-group">
+                        <button class="mode-btn active" data-mode="view">View</button>
+                        <button class="mode-btn" data-mode="fire">Simulate Fire</button>
+                    </div>
+                </div>
+                <div class="legend">
+                    <div class="legend-item"><span class="dot user"></span> You</div>
+                    <div class="legend-item"><span class="dot exit"></span> Exit</div>
+                    <div class="legend-item"><span class="dot fire"></span> Hazard</div>
+                    <div class="legend-item"><span class="dot path"></span> Safe Route</div>
+                </div>
+            </div>
+
+            <div class="visualization-area">
+                <canvas id="floorPlanCanvas"></canvas>
+                <div class="overlay-message" id="overlayMessage">Select "Simulate Fire" based on emergency location
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>

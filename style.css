@@ -1,0 +1,231 @@
+:root {
+    --bg-dark: #0a0a0a;
+    --bg-panel: #141414;
+    --text-main: #ffffff;
+    --text-dim: #888888;
+    --accent-primary: #00ff9d;
+    /* Neon Green for safe */
+    --accent-danger: #ff3333;
+    /* Neon Red for fire */
+    --accent-warning: #ffaa00;
+    --border-color: #333;
+
+    --font-stack: 'Inter', sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-stack);
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+}
+
+.app-container {
+    width: 100%;
+    max-width: 1400px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+}
+
+/* Header */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 20px;
+}
+
+.logo-section h1 {
+    font-weight: 800;
+    letter-spacing: -1px;
+    font-size: 24px;
+}
+
+.logo-section .accent {
+    color: var(--accent-primary);
+}
+
+.logo-section p {
+    color: var(--text-dim);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+}
+
+.status-panel {
+    padding: 8px 16px;
+    border-radius: 4px;
+    background: rgba(0, 255, 157, 0.1);
+    border: 1px solid var(--accent-primary);
+}
+
+.status-indicator {
+    font-weight: 600;
+    color: var(--accent-primary);
+    text-transform: uppercase;
+    font-size: 14px;
+}
+
+.status-panel.danger {
+    background: rgba(255, 51, 51, 0.1);
+    border-color: var(--accent-danger);
+}
+
+.status-panel.danger .status-indicator {
+    color: var(--accent-danger);
+}
+
+/* Main Layout */
+main {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 30px;
+    flex: 1;
+    min-height: 0;
+    /* important for flex nesting */
+}
+
+/* Controls */
+.controls {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.control-group label {
+    display: block;
+    color: var(--text-dim);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}
+
+select {
+    width: 100%;
+    background: black;
+    color: white;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-family: var(--font-stack);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.toggle-group {
+    display: flex;
+    background: black;
+    padding: 4px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.mode-btn {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    padding: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.mode-btn.active {
+    background: var(--bg-panel);
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+.legend {
+    margin-top: auto;
+    border-top: 1px solid var(--border-color);
+    padding-top: 20px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: var(--text-dim);
+}
+
+.dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+.dot.user {
+    background: #3b82f6;
+    box-shadow: 0 0 10px #3b82f6;
+}
+
+.dot.exit {
+    background: var(--accent-primary);
+    box-shadow: 0 0 10px var(--accent-primary);
+}
+
+.dot.fire {
+    background: var(--accent-danger);
+    box-shadow: 0 0 10px var(--accent-danger);
+}
+
+.dot.path {
+    height: 4px;
+    width: 40px;
+    background: var(--accent-primary);
+    border-radius: 2px;
+}
+
+/* Visualization */
+.visualization-area {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+}
+
+canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.overlay-message {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    color: var(--text-dim);
+    pointer-events: none;
+    opacity: 0.8;
+}

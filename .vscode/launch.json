@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "chrome",
+            "request": "launch",
+            "name": "Launch Chrome (Isolated)",
+            "file": "${workspaceFolder}/index.html",
+            "userDataDir": true
+        },
+        {
+            "type": "msedge",
+            "request": "launch",
+            "name": "Launch Edge (Local File)",
+            "file": "${workspaceFolder}/index.html"
+        }
+    ]
+}
