@@ -26,11 +26,12 @@ io.on('connection', (socket) => {
 
     // Handle user movement / placement
     socket.on('updateUser', (data) => {
-        // data = { x, y }
+        // data = { x, y, floor }
         users[socket.id] = {
             id: socket.id,
             x: data.x,
-            y: data.y
+            y: data.y,
+            floor: data.floor || 1 // Default to floor 1 if missing
         };
         // Broadcast updated user list to ALL clients
         io.emit('stateUpdate', {
@@ -41,13 +42,14 @@ io.on('connection', (socket) => {
 
     // Handle Fire Updates
     socket.on('toggleFire', (data) => {
-        // data = { x, y }
-        const existingIdx = fireLocations.findIndex(f => f.x === data.x && f.y === data.y);
+        // data = { x, y, floor }
+        const floor = data.floor || 1;
+        const existingIdx = fireLocations.findIndex(f => f.x === data.x && f.y === data.y && f.floor === floor);
 
         if (existingIdx >= 0) {
             fireLocations.splice(existingIdx, 1);
         } else {
-            fireLocations.push({ x: data.x, y: data.y });
+            fireLocations.push({ x: data.x, y: data.y, floor: floor });
         }
 
         io.emit('stateUpdate', {

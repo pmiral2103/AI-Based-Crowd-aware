@@ -214,29 +214,29 @@ class EvacuationSystem {
 
         if (this.mode === 'fire') {
             if (this.isOnline) {
-                this.socket.emit('toggleFire', { x, y });
+                this.socket.emit('toggleFire', { x, y, floor: this.currentFloor });
             } else {
                 // Offline Fire Toggle
-                const existingIdx = this.fireLocations.findIndex(f => f.x === x && f.y === y);
+                const existingIdx = this.fireLocations.findIndex(f => f.x === x && f.y === y && f.floor === this.currentFloor);
                 if (existingIdx >= 0) {
                     this.fireLocations.splice(existingIdx, 1);
                 } else {
-                    this.fireLocations.push({ x, y });
+                    this.fireLocations.push({ x, y, floor: this.currentFloor });
                 }
-                this.updateStatus(this.fireLocations.length > 0);
+                this.updateStatus(this.fireLocations.some(f => f.floor === this.currentFloor));
                 this.recalculate();
             }
         } else {
             if (!this.isWall(x, y)) {
                 if (this.isOnline) {
-                    this.socket.emit('updateUser', { x, y });
+                    this.socket.emit('updateUser', { x, y, floor: this.currentFloor });
                 } else {
                     // Offline User Toggle
-                    const existingIdx = this.users.findIndex(u => u.x === x && u.y === y);
+                    const existingIdx = this.users.findIndex(u => u.x === x && u.y === y && u.floor === this.currentFloor);
                     if (existingIdx >= 0) {
                         this.users.splice(existingIdx, 1);
                     } else {
-                        this.users.push({ x, y, path: [] });
+                        this.users.push({ x, y, floor: this.currentFloor, path: [] });
                     }
                     this.recalculate();
                 }
@@ -283,7 +283,11 @@ class EvacuationSystem {
             let cost = 1; // Base movement cost (Safe)
 
             if (this.fireLocations.length > 0) {
+                // Using a traditional loop for better performance with filtering
                 for (const fire of this.fireLocations) {
+                    // Only consider fires on the CURRENT FLOOR
+                    if (fire.floor !== this.currentFloor) continue;
+
                     const dist = Math.sqrt((x - fire.x) ** 2 + (y - fire.y) ** 2);
                     if (dist < 4) {
                         // Inside Hazard Zone
@@ -391,6 +395,8 @@ class EvacuationSystem {
             const time = Date.now();
 
             this.fireLocations.forEach(fire => {
+                if (fire.floor !== this.currentFloor) return; // FIX: Only draw fire on current floor
+
                 // Hazard Zone
                 ctx.beginPath();
                 ctx.fillStyle = 'rgba(255, 51, 51, 0.2)';
@@ -416,6 +422,7 @@ class EvacuationSystem {
 
         // Draw Paths for all users
         this.users.forEach(user => {
+            if (user.floor !== this.currentFloor) return; // FIX: Only draw paths for users on current floor
             if (user.path.length > 1) {
                 ctx.strokeStyle = '#00ff9d';
                 ctx.lineWidth = 3;
@@ -433,6 +440,7 @@ class EvacuationSystem {
 
         // Draw All Users
         this.users.forEach(user => {
+            if (user.floor !== this.currentFloor) return; // FIX: Only draw users on current floor
             ctx.shadowBlur = 20;
 
             // Highlight ME
