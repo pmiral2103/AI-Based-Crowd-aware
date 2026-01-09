@@ -179,7 +179,7 @@ class EvacuationSystem {
             this.addToWalls(15, 6, w - 30, 2);
             this.addToWalls(15, h - 8, w - 30, 2);
 
-            this.exits = [{ x: w - 2, y: 2 }, { x: 1, y: h - 3 }, { x: Math.floor(w / 2), y: 0 }];
+            this.exits = [{ x: w - 2, y: 2 }, { x: Math.floor(w / 2), y: 0 }];
             // Users are now managed by server
         }
 
