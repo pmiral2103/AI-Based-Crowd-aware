@@ -61,6 +61,23 @@ class EvacuationSystem {
             });
         });
 
+        // Clear Fire Button
+        const clearBtn = document.getElementById('clearFireBtn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                if (confirm("Are you sure you want to extinguish all fires on this floor?")) {
+                    if (this.isOnline) {
+                        this.socket.emit('clearFire', { floor: this.currentFloor });
+                    } else {
+                        // Offline Clear
+                        this.fireLocations = this.fireLocations.filter(f => f.floor !== this.currentFloor);
+                        this.updateStatus(false); // Assuming no fire on other floors for offline simplicity or complex check
+                        this.recalculate();
+                    }
+                }
+            });
+        }
+
         this.canvas.addEventListener('click', (e) => this.handleClick(e));
 
         // Network Initialization

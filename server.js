@@ -58,6 +58,18 @@ io.on('connection', (socket) => {
         });
     });
 
+    // Handle Clear Fire
+    socket.on('clearFire', (data) => {
+        const floor = data.floor || 1;
+        // Filter out fires from the specific floor
+        fireLocations = fireLocations.filter(f => f.floor !== floor);
+
+        io.emit('stateUpdate', {
+            users: Object.values(users),
+            fireLocations: fireLocations
+        });
+    });
+
     // Handle Disconnect
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
