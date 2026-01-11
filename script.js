@@ -611,13 +611,13 @@ class EvacuationSystem {
                 ctx.strokeRect(user.x * gs, user.y * gs, gs, gs);
 
                 if (user.role === 'firefighter') {
-                    ctx.fillStyle = '#f97316'; // Orange for Firefighter ME
+                    ctx.fillStyle = '#dc2626'; // Red for Firefighter ME
                 } else {
                     ctx.fillStyle = '#3b82f6'; // Blue for Civilian ME
                 }
             } else {
                 if (user.role === 'firefighter') {
-                    ctx.fillStyle = '#ea580c'; // Darker Orange for Other Firefighters
+                    ctx.fillStyle = '#991b1b'; // Dark Red for Other Firefighters
                 } else {
                     ctx.fillStyle = '#8b8b8b'; // Gray for others
                 }

@@ -184,6 +184,11 @@ select {
     box-shadow: 0 0 10px #3b82f6;
 }
 
+.dot.firefighter-legend {
+    background: #dc2626;
+    box-shadow: 0 0 10px #dc2626;
+}
+
 .dot.exit {
     background: var(--accent-primary);
     box-shadow: 0 0 10px var(--accent-primary);
