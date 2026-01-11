@@ -30,6 +30,18 @@ class EvacuationSystem {
         this.exits = [];
         this.walls = []; // Array of {x, y}
 
+        // Voice Navigation State
+        this.lastInstruction = "";
+        this.lastSpeakTime = 0;
+
+        this.role = 'civilian'; // 'civilian' or 'firefighter'
+
+        // Real-World State
+        this.customMap = null;
+        this.calibrated = false;
+        this.calibrationPoints = []; // [ {pixel: {x,y}, gps: {lat,lon}} ]
+        this.lastClick = null;
+
         this.init();
     }
 
@@ -40,8 +52,26 @@ class EvacuationSystem {
         // Load Floor 1 by default
         this.loadFloor(1);
 
+        this.setupRealWorld();
+
         // Event Listeners
         this.floorSelect.addEventListener('change', (e) => this.loadFloor(parseInt(e.target.value)));
+
+        const roleSelect = document.getElementById('roleSelect');
+        if (roleSelect) {
+            roleSelect.addEventListener('change', (e) => {
+                this.role = e.target.value;
+                // Force update position to broadcast new role
+                if (this.isOnline) {
+                    // We need to resend current position with new role
+                    // Find 'me' to get current coords
+                    const me = this.users.find(u => u.id === this.myId);
+                    if (me) {
+                        this.socket.emit('updateUser', { x: me.x, y: me.y, floor: this.currentFloor, role: this.role });
+                    }
+                }
+            });
+        }
 
         this.modeBtns.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -78,7 +108,11 @@ class EvacuationSystem {
             });
         }
 
-        this.canvas.addEventListener('click', (e) => this.handleClick(e));
+
+        this.canvas.addEventListener('click', (e) => {
+            this.unlockVoice(); // Unlock on map click too
+            this.handleClick(e)
+        });
 
         // Network Initialization
         if (this.isOnline) {
@@ -141,18 +175,32 @@ class EvacuationSystem {
         for (let y = 0; y < h; y++) { this.walls.push({ x: 0, y }); this.walls.push({ x: w - 1, y }); }
 
         if (floorNum === 1) {
-            // Lobby Layout - Large open space with columns
-            this.addToWalls(5, 5, 2, 5);
-            this.addToWalls(15, 5, 2, 5);
-            this.addToWalls(w - 7, 5, 2, 5);
-            this.addToWalls(5, h - 7, 10, 2);
-            this.addToWalls(w - 12, h - 7, 8, 2);
+            // Lecture Hall Layout (User Requested)
+            // Layout: Stepped rows of desks, central aisle, 2 exits (Front/Back)
 
-            // Central blocked feature
-            this.addToWalls(w / 2 - 2, h / 2 - 2, 4, 4);
+            const aisleWidth = 4;
+            const rowDepth = 2; // Desk depth
+            const rowGap = 3;   // Walking space between rows
+            const sideMargin = 2;
 
-            this.exits = [{ x: w - 2, y: h - 5 }, { x: 1, y: h - 5 }, { x: Math.floor(w / 2), y: 1 }];
-            // Users are now managed by server
+            // Front Area (Stage/Screen)
+            // Clear space at y=0 to y=5
+
+            // Rows of Desks
+            for (let y = 6; y < h - 5; y += (rowDepth + rowGap)) {
+                // Left Block of Desks
+                this.addToWalls(sideMargin, y, (w / 2) - sideMargin - (aisleWidth / 2), rowDepth);
+
+                // Right Block of Desks
+                this.addToWalls((w / 2) + (aisleWidth / 2), y, (w / 2) - sideMargin - (aisleWidth / 2), rowDepth);
+            }
+
+            // Exits
+            // Front Exit (Top)
+            this.exits.push({ x: Math.floor(w / 2), y: 1 });
+            // Back Exit (Bottom)
+            this.exits.push({ x: Math.floor(w / 2), y: h - 2 });
+            this.exits.push({ x: w - 2, y: h - 2 }); // Extra back exit just in case
 
         } else if (floorNum === 2) {
             // Office Layout - Cubicles/Corridors
@@ -229,6 +277,8 @@ class EvacuationSystem {
         const x = Math.floor((e.clientX - rect.left) / this.gridSize);
         const y = Math.floor((e.clientY - rect.top) / this.gridSize);
 
+        this.lastClick = { x, y }; // Save for calibration
+
         if (this.mode === 'fire') {
             if (this.isOnline) {
                 this.socket.emit('toggleFire', { x, y, floor: this.currentFloor });
@@ -246,14 +296,39 @@ class EvacuationSystem {
         } else {
             if (!this.isWall(x, y)) {
                 if (this.isOnline) {
-                    this.socket.emit('updateUser', { x, y, floor: this.currentFloor });
+                    this.socket.emit('updateUser', { x, y, floor: this.currentFloor, role: this.role });
                 } else {
-                    // Offline User Toggle
-                    const existingIdx = this.users.findIndex(u => u.x === x && u.y === y && u.floor === this.currentFloor);
-                    if (existingIdx >= 0) {
-                        this.users.splice(existingIdx, 1);
+                    // Offline Mode Logic
+                    if (this.role === 'firefighter') {
+                        // Firefighters: Toggle (Add multiple)
+                        const existingIdx = this.users.findIndex(u => u.x === x && u.y === y && u.floor === this.currentFloor);
+                        if (existingIdx >= 0) {
+                            this.users.splice(existingIdx, 1);
+                        } else {
+                            // Mix of behaviors: 50% Rescue, 50% Evacuate
+                            const action = Math.random() > 0.5 ? 'rescue' : 'evacuate';
+                            this.users.push({
+                                x, y,
+                                floor: this.currentFloor,
+                                path: [],
+                                role: 'firefighter',
+                                ffAction: action,
+                                id: `ff_${Date.now()}_${Math.random()}`
+                            });
+                        }
                     } else {
-                        this.users.push({ x, y, floor: this.currentFloor, path: [] });
+                        // Civilian: Single User Movement (Clear other civilians, keep firefighters)
+                        this.users = this.users.filter(u => u.role === 'firefighter'); // Keep firefighters
+                        this.users.push({
+                            x: x,
+                            y: y,
+                            floor: this.currentFloor,
+                            path: [],
+                            role: 'civilian',
+                            ffAction: 'evacuate', // Civilians always evacuate
+                            id: 'me'
+                        });
+                        this.myId = 'me';
                     }
                     this.recalculate();
                 }
@@ -277,61 +352,108 @@ class EvacuationSystem {
     }
 
     recalculate() {
-        if (!this.exits.length) return;
+        // Removed early return optimization to ensure paths update for all users
+        console.log(`Recalculating paths for ${this.users.length} users...`);
 
         this.users.forEach(user => {
-            user.path = this.findPath(user.x, user.y);
+            const action = user.ffAction || (user.role === 'firefighter' ? 'rescue' : 'evacuate');
+            user.path = this.findPath(user.x, user.y, user.role, action);
+            console.log(`User ${user.id} (${user.role}-${action}): Path length ${user.path.length}`);
+
+            // Voice Navigation for ME
+            if (user.id === this.myId && user.path.length > 0) {
+                const directions = this.getDirections(user.path);
+                if (directions.length > 0) {
+                    this.speak(directions[0]);
+                } else if (user.path.length <= 1) {
+                    if (user.role === 'firefighter' && action === 'rescue') {
+                        this.speak("You have reached the fire");
+                    } else {
+                        this.speak("You have reached the exit");
+                    }
+                }
+            }
         });
     }
 
-    findPath(startX, startY) {
+    getDirections(path) {
+        if (path.length < 2) return [];
+        // Basic direction logic (Simplified)
+        return ["Go forward"];
+    }
+
+    speak(text) {
+        if ('speechSynthesis' in window) {
+            if (this.lastInstruction === text && Date.now() - this.lastSpeakTime < 5000) return;
+            this.lastInstruction = text;
+            this.lastSpeakTime = Date.now();
+            const utterance = new SpeechSynthesisUtterance(text);
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+
+    findPath(startX, startY, role = 'civilian', ffAction = 'evacuate') {
         // Dijkstra's Algorithm for Weighted Pathfinding
-        // This allows passing through fire if necessary, but with high penalty (risk)
+
+        let targets = [];
+        if (role === 'firefighter' && ffAction === 'rescue') {
+            // Firefighters ON DUTY go TO the fire
+            targets = this.fireLocations.filter(f => f.floor === this.currentFloor);
+
+            // Fallback: If no fire, Firefighters evacuate (or patrol) to ensure path visibility
+            if (targets.length === 0) {
+                targets = this.exits;
+            }
+        } else {
+            // Civilians AND Evacuating Firefighters go TO the exits
+            targets = this.exits;
+        }
 
         let startNode = { x: startX, y: startY, cost: 0, parent: null };
         let openSet = [startNode];
         let visited = new Map(); // key -> minCost
-        let nearestExit = null;
+        let nearestTarget = null;
 
-        // Cost function: Returns the "risk" of stepping onto a tile
+        // Cost function
         const getCost = (x, y) => {
             if (this.isWall(x, y)) return Infinity; // Walls are impassable
 
             let cost = 1; // Base movement cost (Safe)
 
-            if (this.fireLocations.length > 0) {
-                // Using a traditional loop for better performance with filtering
+            // Civilians and EVACUATING firefighters avoid fire
+            const shouldAvoidFire = (role !== 'firefighter') || (role === 'firefighter' && ffAction === 'evacuate');
+
+            if (this.fireLocations.length > 0 && shouldAvoidFire) {
+                // Civilians avoid fire
                 for (const fire of this.fireLocations) {
-                    // Only consider fires on the CURRENT FLOOR
                     if (fire.floor !== this.currentFloor) continue;
 
                     const dist = Math.sqrt((x - fire.x) ** 2 + (y - fire.y) ** 2);
                     if (dist < 4) {
-                        // Inside Hazard Zone
-                        // Cost increases closer to the fire center
-                        // 4 edge -> ~10 cost
-                        // 0 center -> ~50 cost
+                        // Hazard Cost
                         cost += Math.floor((4.5 - dist) * 10);
                     }
                 }
             }
+            // Rescue Firefighters ignore fire cost
+
             return cost;
         };
 
         while (openSet.length > 0) {
-            // Sort by cost (Simple priority queue simulation)
+            // Sort by cost
             openSet.sort((a, b) => a.cost - b.cost);
             let curr = openSet.shift();
             const key = `${curr.x},${curr.y}`;
 
-            // If we found a cheaper way to this node already, skip
             if (visited.has(key) && visited.get(key) <= curr.cost) continue;
             visited.set(key, curr.cost);
 
-            // Check if exit
-            if (this.exits.some(e => e.x === curr.x && e.y === curr.y)) {
-                nearestExit = curr;
-                break; // Found the optimal path to the nearest safest exit
+            // Check if target reached (fuzzy match for fire?)
+            // Exits are exact points. Fires are points too.
+            if (targets.some(t => t.x === curr.x && t.y === curr.y)) {
+                nearestTarget = curr;
+                break;
             }
 
             // Neighbors
@@ -357,8 +479,8 @@ class EvacuationSystem {
 
         // Reconstruct path
         const path = [];
-        if (nearestExit) {
-            let curr = nearestExit;
+        if (nearestTarget) {
+            let curr = nearestTarget;
             while (curr) {
                 path.unshift({ x: curr.x, y: curr.y });
                 curr = curr.parent;
@@ -375,24 +497,33 @@ class EvacuationSystem {
         ctx.fillStyle = '#141414';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw Grid (Subtle)
-        ctx.strokeStyle = '#222';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        for (let x = 0; x <= this.width; x++) { ctx.moveTo(x * gs, 0); ctx.lineTo(x * gs, this.canvas.height); }
-        for (let y = 0; y <= this.height; y++) { ctx.moveTo(0, y * gs); ctx.lineTo(this.canvas.width, y * gs); }
-        ctx.stroke();
+        // Draw Map (Custom or Default)
+        if (this.customMap) {
+            ctx.drawImage(this.customMap, 0, 0, this.canvas.width, this.canvas.height);
+            // Draw semi-transparent dark overlay so UI elements pop
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        } else {
+            // Draw Grid (Subtle)
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let x = 0; x <= this.width; x++) { ctx.moveTo(x * gs, 0); ctx.lineTo(x * gs, this.canvas.height); }
+            for (let y = 0; y <= this.height; y++) { ctx.moveTo(0, y * gs); ctx.lineTo(this.canvas.width, y * gs); }
+            ctx.stroke();
 
-        // Draw Walls
-        ctx.fillStyle = '#444';
-        this.walls.forEach(w => {
-            ctx.shadowColor = 'transparent';
-            ctx.fillRect(w.x * gs, w.y * gs, gs, gs);
-            // 3D effect top highlight
-            ctx.fillStyle = '#555';
-            ctx.fillRect(w.x * gs, w.y * gs, gs, 4);
+            // Draw Walls
             ctx.fillStyle = '#444';
-        });
+            this.walls.forEach(w => {
+                ctx.shadowColor = 'transparent';
+                ctx.fillRect(w.x * gs, w.y * gs, gs, gs);
+                // 3D effect top highlight
+                ctx.fillStyle = '#555';
+                ctx.fillRect(w.x * gs, w.y * gs, gs, 4);
+                ctx.fillStyle = '#444';
+            });
+        }
+
 
         // Draw Exits
         ctx.fillStyle = '#00ff9d';
@@ -441,10 +572,22 @@ class EvacuationSystem {
         this.users.forEach(user => {
             if (user.floor !== this.currentFloor) return; // FIX: Only draw paths for users on current floor
             if (user.path.length > 1) {
-                ctx.strokeStyle = '#00ff9d';
-                ctx.lineWidth = 3;
+                // Determine path color based on intent
+                const action = user.ffAction || (user.role === 'firefighter' ? 'rescue' : 'evacuate');
+
+                // If action is rescue but no fire exists, we fell back to exit.
+                // Let's check the target of the path? 
+                // Simplest: If role is firefighter and action is rescue, RED.
+
+                if (action === 'rescue' && user.role === 'firefighter') {
+                    ctx.strokeStyle = '#ef4444'; // RED for Attack Path
+                } else {
+                    ctx.strokeStyle = '#00ff9d'; // GREEN for Evac Path
+                }
+
+                ctx.lineWidth = 4; // Thicker line for visibility
                 ctx.lineJoin = 'round';
-                ctx.shadowColor = '#00ff9d';
+                ctx.shadowColor = ctx.strokeStyle;
                 ctx.shadowBlur = 10;
                 ctx.beginPath();
                 ctx.moveTo((user.path[0].x + 0.5) * gs, (user.path[0].y + 0.5) * gs);
@@ -467,9 +610,17 @@ class EvacuationSystem {
                 ctx.lineWidth = 2;
                 ctx.strokeRect(user.x * gs, user.y * gs, gs, gs);
 
-                ctx.fillStyle = '#3b82f6'; // Blue
+                if (user.role === 'firefighter') {
+                    ctx.fillStyle = '#f97316'; // Orange for Firefighter ME
+                } else {
+                    ctx.fillStyle = '#3b82f6'; // Blue for Civilian ME
+                }
             } else {
-                ctx.fillStyle = '#8b8b8b'; // Gray for others
+                if (user.role === 'firefighter') {
+                    ctx.fillStyle = '#ea580c'; // Darker Orange for Other Firefighters
+                } else {
+                    ctx.fillStyle = '#8b8b8b'; // Gray for others
+                }
             }
 
             ctx.shadowColor = ctx.fillStyle;
@@ -484,6 +635,23 @@ class EvacuationSystem {
     animate() {
         this.draw();
         requestAnimationFrame(() => this.animate());
+    }
+    unlockVoice() {
+        if ('speechSynthesis' in window) {
+            // Create a silent utterance to unlock the audio context if needed
+            // Some browsers require user interaction before playing audio
+            if (window.speechSynthesis.paused) {
+                window.speechSynthesis.resume();
+            }
+        }
+    }
+
+    setupRealWorld() {
+        // Real-World features (Map Upload & GPS) removed by user request
+    }
+
+    isInBounds(x, y) {
+        return x >= 0 && x < this.width && y >= 0 && y < this.height;
     }
 }
 
