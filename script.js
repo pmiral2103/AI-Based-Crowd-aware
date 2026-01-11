@@ -295,10 +295,13 @@ class EvacuationSystem {
             }
         } else {
             if (!this.isWall(x, y)) {
-                if (this.isOnline) {
+                if (this.isOnline && this.role === 'civilian') {
+                    // Online Civilian: Move "Me" (Real Multiplayer Logic)
                     this.socket.emit('updateUser', { x, y, floor: this.currentFloor, role: this.role });
                 } else {
-                    // Offline Mode Logic
+                    // Firefighter OR Offline: Spawn Simulation Bots
+                    // This allows the user to click and add multiple "firefighters" to test the swarm behavior
+                    // even if they are online (Local Simulation for Firefighters)
                     if (this.role === 'firefighter') {
                         // Firefighters: Toggle (Add multiple)
                         const existingIdx = this.users.findIndex(u => u.x === x && u.y === y && u.floor === this.currentFloor);
