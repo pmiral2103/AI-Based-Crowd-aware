@@ -206,6 +206,20 @@ select {
     border-radius: 2px;
 }
 
+.dot.path-rescue {
+    height: 4px;
+    width: 40px;
+    background: #ef4444;
+    border-radius: 2px;
+}
+
+.dot.path-search {
+    height: 4px;
+    width: 40px;
+    background: #eab308;
+    border-radius: 2px;
+}
+
 /* Visualization */
 .visualization-area {
     background: var(--bg-panel);
