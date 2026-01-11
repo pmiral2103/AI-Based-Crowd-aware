@@ -316,357 +316,356 @@ class EvacuationSystem {
                             ffAction: action,
                             id: `ff_${Date.now()}_${Math.random()}`
                         });
+                    } else {
+                        // Civilian: Single User Movement (Clear other civilians, keep firefighters)
+                        this.users = this.users.filter(u => u.role === 'firefighter'); // Keep firefighters
+                        this.users.push({
+                            x: x,
+                            y: y,
+                            floor: this.currentFloor,
+                            path: [],
+                            role: 'civilian',
+                            ffAction: 'evacuate', // Civilians always evacuate
+                            id: 'me'
+                        });
+                        this.myId = 'me';
                     }
-                } else {
-                    // Civilian: Single User Movement (Clear other civilians, keep firefighters)
-                    this.users = this.users.filter(u => u.role === 'firefighter'); // Keep firefighters
-                    this.users.push({
-                        x: x,
-                        y: y,
-                        floor: this.currentFloor,
-                        path: [],
-                        role: 'civilian',
-                        ffAction: 'evacuate', // Civilians always evacuate
-                        id: 'me'
-                    });
-                    this.myId = 'me';
-                }
-                this.recalculate();
-            }
-        }
-    }
-}
-
-updateStatus(isDanger) {
-    if (isDanger) {
-        this.statusPanel.classList.add('danger');
-        this.statusText.textContent = "EMERGENCY: EVACUATE";
-        this.overlayMsg.textContent = "Calculating safest route...";
-    } else {
-        this.statusPanel.classList.remove('danger');
-        this.statusText.textContent = "ALL CLEAR";
-    }
-}
-
-isWall(x, y) {
-    return this.walls.some(w => w.x === x && w.y === y);
-}
-
-recalculate() {
-    // Removed early return optimization to ensure paths update for all users
-    console.log(`Recalculating paths for ${this.users.length} users...`);
-
-    this.users.forEach(user => {
-        const action = user.ffAction || (user.role === 'firefighter' ? 'rescue_fire' : 'evacuate');
-        user.path = this.findPath(user.x, user.y, user.role, action);
-        console.log(`User ${user.id} (${user.role}-${action}): Path length ${user.path.length}`);
-
-        // Voice Navigation for ME
-        if (user.id === this.myId && user.path.length > 0) {
-            const directions = this.getDirections(user.path);
-            if (directions.length > 0) {
-                this.speak(directions[0]);
-            } else if (user.path.length <= 1) {
-                if (user.role === 'firefighter' && action === 'rescue_fire') {
-                    this.speak("You have reached the fire");
-                } else if (user.role === 'firefighter' && action === 'rescue_civilian') {
-                    this.speak("You have reached the civilian");
-                } else {
-                    this.speak("You have reached the exit");
+                    this.recalculate();
                 }
             }
         }
-    });
-}
-
-getDirections(path) {
-    if (path.length < 2) return [];
-    // Basic direction logic (Simplified)
-    return ["Go forward"];
-}
-
-speak(text) {
-    if ('speechSynthesis' in window) {
-        if (this.lastInstruction === text && Date.now() - this.lastSpeakTime < 5000) return;
-        this.lastInstruction = text;
-        this.lastSpeakTime = Date.now();
-        const utterance = new SpeechSynthesisUtterance(text);
-        window.speechSynthesis.speak(utterance);
     }
-}
 
-findPath(startX, startY, role = 'civilian', ffAction = 'evacuate') {
-    // Dijkstra's Algorithm for Weighted Pathfinding
-
-    let targets = [];
-    if (role === 'firefighter') {
-        if (ffAction === 'rescue_fire') {
-            // Firefighters ON DUTY go TO the fire
-            targets = this.fireLocations.filter(f => f.floor === this.currentFloor);
-        } else if (ffAction === 'rescue_civilian') {
-            // Firefighters go TO nearest Civilian
-            targets = this.users
-                .filter(u => u.role === 'civilian' && u.floor === this.currentFloor)
-                .map(u => ({ x: u.x, y: u.y })); // Extract coords
+    updateStatus(isDanger) {
+        if (isDanger) {
+            this.statusPanel.classList.add('danger');
+            this.statusText.textContent = "EMERGENCY: EVACUATE";
+            this.overlayMsg.textContent = "Calculating safest route...";
         } else {
-            // Fallback for firefighters if action is not specified or unknown, they evacuate
+            this.statusPanel.classList.remove('danger');
+            this.statusText.textContent = "ALL CLEAR";
+        }
+    }
+
+    isWall(x, y) {
+        return this.walls.some(w => w.x === x && w.y === y);
+    }
+
+    recalculate() {
+        // Removed early return optimization to ensure paths update for all users
+        console.log(`Recalculating paths for ${this.users.length} users...`);
+
+        this.users.forEach(user => {
+            const action = user.ffAction || (user.role === 'firefighter' ? 'rescue_fire' : 'evacuate');
+            user.path = this.findPath(user.x, user.y, user.role, action);
+            console.log(`User ${user.id} (${user.role}-${action}): Path length ${user.path.length}`);
+
+            // Voice Navigation for ME
+            if (user.id === this.myId && user.path.length > 0) {
+                const directions = this.getDirections(user.path);
+                if (directions.length > 0) {
+                    this.speak(directions[0]);
+                } else if (user.path.length <= 1) {
+                    if (user.role === 'firefighter' && action === 'rescue_fire') {
+                        this.speak("You have reached the fire");
+                    } else if (user.role === 'firefighter' && action === 'rescue_civilian') {
+                        this.speak("You have reached the civilian");
+                    } else {
+                        this.speak("You have reached the exit");
+                    }
+                }
+            }
+        });
+    }
+
+    getDirections(path) {
+        if (path.length < 2) return [];
+        // Basic direction logic (Simplified)
+        return ["Go forward"];
+    }
+
+    speak(text) {
+        if ('speechSynthesis' in window) {
+            if (this.lastInstruction === text && Date.now() - this.lastSpeakTime < 5000) return;
+            this.lastInstruction = text;
+            this.lastSpeakTime = Date.now();
+            const utterance = new SpeechSynthesisUtterance(text);
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+
+    findPath(startX, startY, role = 'civilian', ffAction = 'evacuate') {
+        // Dijkstra's Algorithm for Weighted Pathfinding
+
+        let targets = [];
+        if (role === 'firefighter') {
+            if (ffAction === 'rescue_fire') {
+                // Firefighters ON DUTY go TO the fire
+                targets = this.fireLocations.filter(f => f.floor === this.currentFloor);
+            } else if (ffAction === 'rescue_civilian') {
+                // Firefighters go TO nearest Civilian
+                targets = this.users
+                    .filter(u => u.role === 'civilian' && u.floor === this.currentFloor)
+                    .map(u => ({ x: u.x, y: u.y })); // Extract coords
+            } else {
+                // Fallback for firefighters if action is not specified or unknown, they evacuate
+                targets = this.exits;
+            }
+        } else {
+            // Civilians AND Evacuating Firefighters (if any left) go TO the exits
             targets = this.exits;
         }
-    } else {
-        // Civilians AND Evacuating Firefighters (if any left) go TO the exits
-        targets = this.exits;
-    }
 
-    let startNode = { x: startX, y: startY, cost: 0, parent: null };
-    let openSet = [startNode];
-    let visited = new Map(); // key -> minCost
-    let nearestTarget = null;
+        let startNode = { x: startX, y: startY, cost: 0, parent: null };
+        let openSet = [startNode];
+        let visited = new Map(); // key -> minCost
+        let nearestTarget = null;
 
-    // Cost function
-    const getCost = (x, y) => {
-        if (this.isWall(x, y)) return Infinity; // Walls are impassable
+        // Cost function
+        const getCost = (x, y) => {
+            if (this.isWall(x, y)) return Infinity; // Walls are impassable
 
-        let cost = 1; // Base movement cost (Safe)
+            let cost = 1; // Base movement cost (Safe)
 
-        // Civilians and EVACUATING firefighters avoid fire
-        const shouldAvoidFire = (role !== 'firefighter') || (role === 'firefighter' && ffAction === 'evacuate');
+            // Civilians and EVACUATING firefighters avoid fire
+            const shouldAvoidFire = (role !== 'firefighter') || (role === 'firefighter' && ffAction === 'evacuate');
 
-        if (this.fireLocations.length > 0 && shouldAvoidFire) {
-            // Civilians avoid fire
-            for (const fire of this.fireLocations) {
-                if (fire.floor !== this.currentFloor) continue;
+            if (this.fireLocations.length > 0 && shouldAvoidFire) {
+                // Civilians avoid fire
+                for (const fire of this.fireLocations) {
+                    if (fire.floor !== this.currentFloor) continue;
 
-                const dist = Math.sqrt((x - fire.x) ** 2 + (y - fire.y) ** 2);
-                if (dist < 4) {
-                    // Hazard Cost
-                    cost += Math.floor((4.5 - dist) * 10);
+                    const dist = Math.sqrt((x - fire.x) ** 2 + (y - fire.y) ** 2);
+                    if (dist < 4) {
+                        // Hazard Cost
+                        cost += Math.floor((4.5 - dist) * 10);
+                    }
                 }
             }
-        }
-        // Rescue Firefighters ignore fire cost
+            // Rescue Firefighters ignore fire cost
 
-        return cost;
-    };
+            return cost;
+        };
 
-    while (openSet.length > 0) {
-        // Sort by cost
-        openSet.sort((a, b) => a.cost - b.cost);
-        let curr = openSet.shift();
-        const key = `${curr.x},${curr.y}`;
+        while (openSet.length > 0) {
+            // Sort by cost
+            openSet.sort((a, b) => a.cost - b.cost);
+            let curr = openSet.shift();
+            const key = `${curr.x},${curr.y}`;
 
-        if (visited.has(key) && visited.get(key) <= curr.cost) continue;
-        visited.set(key, curr.cost);
+            if (visited.has(key) && visited.get(key) <= curr.cost) continue;
+            visited.set(key, curr.cost);
 
-        // Check if target reached (fuzzy match for fire?)
-        // Exits are exact points. Fires are points too.
-        if (targets.some(t => t.x === curr.x && t.y === curr.y)) {
-            nearestTarget = curr;
-            break;
-        }
+            // Check if target reached (fuzzy match for fire?)
+            // Exits are exact points. Fires are points too.
+            if (targets.some(t => t.x === curr.x && t.y === curr.y)) {
+                nearestTarget = curr;
+                break;
+            }
 
-        // Neighbors
-        const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
-        for (let d of dirs) {
-            const nx = curr.x + d[0];
-            const ny = curr.y + d[1];
+            // Neighbors
+            const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+            for (let d of dirs) {
+                const nx = curr.x + d[0];
+                const ny = curr.y + d[1];
 
-            if (nx >= 0 && nx < this.width && ny >= 0 && ny < this.height) {
-                const stepCost = getCost(nx, ny);
+                if (nx >= 0 && nx < this.width && ny >= 0 && ny < this.height) {
+                    const stepCost = getCost(nx, ny);
 
-                if (stepCost !== Infinity) {
-                    const newCost = curr.cost + stepCost;
-                    const nKey = `${nx},${ny}`;
+                    if (stepCost !== Infinity) {
+                        const newCost = curr.cost + stepCost;
+                        const nKey = `${nx},${ny}`;
 
-                    if (!visited.has(nKey) || visited.get(nKey) > newCost) {
-                        openSet.push({ x: nx, y: ny, cost: newCost, parent: curr });
+                        if (!visited.has(nKey) || visited.get(nKey) > newCost) {
+                            openSet.push({ x: nx, y: ny, cost: newCost, parent: curr });
+                        }
                     }
                 }
             }
         }
-    }
 
-    // Reconstruct path
-    const path = [];
-    if (nearestTarget) {
-        let curr = nearestTarget;
-        while (curr) {
-            path.unshift({ x: curr.x, y: curr.y });
-            curr = curr.parent;
+        // Reconstruct path
+        const path = [];
+        if (nearestTarget) {
+            let curr = nearestTarget;
+            while (curr) {
+                path.unshift({ x: curr.x, y: curr.y });
+                curr = curr.parent;
+            }
         }
+        return path;
     }
-    return path;
-}
 
-draw() {
-    const ctx = this.ctx;
-    const gs = this.gridSize;
+    draw() {
+        const ctx = this.ctx;
+        const gs = this.gridSize;
 
-    // Clear
-    ctx.fillStyle = '#141414';
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-    // Draw Map (Custom or Default)
-    if (this.customMap) {
-        ctx.drawImage(this.customMap, 0, 0, this.canvas.width, this.canvas.height);
-        // Draw semi-transparent dark overlay so UI elements pop
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        // Clear
+        ctx.fillStyle = '#141414';
         ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    } else {
-        // Draw Grid (Subtle)
-        ctx.strokeStyle = '#222';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        for (let x = 0; x <= this.width; x++) { ctx.moveTo(x * gs, 0); ctx.lineTo(x * gs, this.canvas.height); }
-        for (let y = 0; y <= this.height; y++) { ctx.moveTo(0, y * gs); ctx.lineTo(this.canvas.width, y * gs); }
-        ctx.stroke();
 
-        // Draw Walls
-        ctx.fillStyle = '#444';
-        this.walls.forEach(w => {
-            ctx.shadowColor = 'transparent';
-            ctx.fillRect(w.x * gs, w.y * gs, gs, gs);
-            // 3D effect top highlight
-            ctx.fillStyle = '#555';
-            ctx.fillRect(w.x * gs, w.y * gs, gs, 4);
+        // Draw Map (Custom or Default)
+        if (this.customMap) {
+            ctx.drawImage(this.customMap, 0, 0, this.canvas.width, this.canvas.height);
+            // Draw semi-transparent dark overlay so UI elements pop
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        } else {
+            // Draw Grid (Subtle)
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let x = 0; x <= this.width; x++) { ctx.moveTo(x * gs, 0); ctx.lineTo(x * gs, this.canvas.height); }
+            for (let y = 0; y <= this.height; y++) { ctx.moveTo(0, y * gs); ctx.lineTo(this.canvas.width, y * gs); }
+            ctx.stroke();
+
+            // Draw Walls
             ctx.fillStyle = '#444';
-        });
-    }
+            this.walls.forEach(w => {
+                ctx.shadowColor = 'transparent';
+                ctx.fillRect(w.x * gs, w.y * gs, gs, gs);
+                // 3D effect top highlight
+                ctx.fillStyle = '#555';
+                ctx.fillRect(w.x * gs, w.y * gs, gs, 4);
+                ctx.fillStyle = '#444';
+            });
+        }
 
 
-    // Draw Exits
-    ctx.fillStyle = '#00ff9d';
-    ctx.shadowColor = '#00ff9d';
-    ctx.shadowBlur = 20;
-    this.exits.forEach(e => {
-        ctx.fillRect(e.x * gs, e.y * gs, gs, gs);
-        // Text
-        ctx.font = '10px Inter';
-        ctx.fillStyle = '#000';
-        ctx.fillText("EXIT", e.x * gs + 4, e.y * gs + gs / 2 + 3);
+        // Draw Exits
         ctx.fillStyle = '#00ff9d';
-    });
-
-    // Draw Fire & Hazard Zone
-    if (this.fireLocations.length > 0) {
-        const time = Date.now();
-
-        this.fireLocations.forEach(fire => {
-            if (fire.floor !== this.currentFloor) return; // FIX: Only draw fire on current floor
-
-            // Hazard Zone
-            ctx.beginPath();
-            ctx.fillStyle = 'rgba(255, 51, 51, 0.2)';
-            ctx.arc((fire.x + 0.5) * gs, (fire.y + 0.5) * gs, gs * 4, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Fire Core
-            ctx.shadowColor = '#ff3333';
-            ctx.shadowBlur = 30;
-            ctx.fillStyle = '#ff3333';
-            ctx.beginPath();
-            ctx.arc((fire.x + 0.5) * gs, (fire.y + 0.5) * gs, gs / 1.5, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Pulse Animation
-            const pulse = (time % 1000) / 1000;
-            ctx.fillStyle = `rgba(255, 50, 50, ${1 - pulse})`;
-            ctx.beginPath();
-            ctx.arc((fire.x + 0.5) * gs, (fire.y + 0.5) * gs, gs * (0.5 + pulse), 0, Math.PI * 2);
-            ctx.fill();
+        ctx.shadowColor = '#00ff9d';
+        ctx.shadowBlur = 20;
+        this.exits.forEach(e => {
+            ctx.fillRect(e.x * gs, e.y * gs, gs, gs);
+            // Text
+            ctx.font = '10px Inter';
+            ctx.fillStyle = '#000';
+            ctx.fillText("EXIT", e.x * gs + 4, e.y * gs + gs / 2 + 3);
+            ctx.fillStyle = '#00ff9d';
         });
-    }
 
-    // Draw Paths for all users
-    this.users.forEach(user => {
-        if (user.floor !== this.currentFloor) return; // FIX: Only draw paths for users on current floor
-        if (user.path.length > 1) {
-            // Determine path color based on intent
-            const action = user.ffAction || (user.role === 'firefighter' ? 'rescue' : 'evacuate');
+        // Draw Fire & Hazard Zone
+        if (this.fireLocations.length > 0) {
+            const time = Date.now();
 
-            // If action is rescue but no fire exists, we fell back to exit.
-            // Let's check the target of the path? 
-            // Simplest: If role is firefighter and action is rescue, RED.
+            this.fireLocations.forEach(fire => {
+                if (fire.floor !== this.currentFloor) return; // FIX: Only draw fire on current floor
 
-            if (user.role === 'firefighter') {
-                if (action === 'rescue_fire') {
-                    ctx.strokeStyle = '#ef4444'; // RED (Target: Fire)
-                } else if (action === 'rescue_civilian') {
-                    ctx.strokeStyle = '#eab308'; // YELLOW (Target: Human)
+                // Hazard Zone
+                ctx.beginPath();
+                ctx.fillStyle = 'rgba(255, 51, 51, 0.2)';
+                ctx.arc((fire.x + 0.5) * gs, (fire.y + 0.5) * gs, gs * 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Fire Core
+                ctx.shadowColor = '#ff3333';
+                ctx.shadowBlur = 30;
+                ctx.fillStyle = '#ff3333';
+                ctx.beginPath();
+                ctx.arc((fire.x + 0.5) * gs, (fire.y + 0.5) * gs, gs / 1.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Pulse Animation
+                const pulse = (time % 1000) / 1000;
+                ctx.fillStyle = `rgba(255, 50, 50, ${1 - pulse})`;
+                ctx.beginPath();
+                ctx.arc((fire.x + 0.5) * gs, (fire.y + 0.5) * gs, gs * (0.5 + pulse), 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        // Draw Paths for all users
+        this.users.forEach(user => {
+            if (user.floor !== this.currentFloor) return; // FIX: Only draw paths for users on current floor
+            if (user.path.length > 1) {
+                // Determine path color based on intent
+                const action = user.ffAction || (user.role === 'firefighter' ? 'rescue' : 'evacuate');
+
+                // If action is rescue but no fire exists, we fell back to exit.
+                // Let's check the target of the path? 
+                // Simplest: If role is firefighter and action is rescue, RED.
+
+                if (user.role === 'firefighter') {
+                    if (action === 'rescue_fire') {
+                        ctx.strokeStyle = '#ef4444'; // RED (Target: Fire)
+                    } else if (action === 'rescue_civilian') {
+                        ctx.strokeStyle = '#eab308'; // YELLOW (Target: Human)
+                    } else {
+                        ctx.strokeStyle = '#00ff9d'; // Fallback Green (should rarely happen per new logic)
+                    }
                 } else {
-                    ctx.strokeStyle = '#00ff9d'; // Fallback Green (should rarely happen per new logic)
+                    ctx.strokeStyle = '#00ff9d'; // GREEN for Civilians
+                }
+
+                ctx.lineWidth = 4; // Thicker line for visibility
+                ctx.lineJoin = 'round';
+                ctx.shadowColor = ctx.strokeStyle;
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.moveTo((user.path[0].x + 0.5) * gs, (user.path[0].y + 0.5) * gs);
+                for (let i = 1; i < user.path.length; i++) {
+                    ctx.lineTo((user.path[i].x + 0.5) * gs, (user.path[i].y + 0.5) * gs);
+                }
+                ctx.stroke();
+            }
+        });
+
+        // Draw All Users
+        this.users.forEach(user => {
+            if (user.floor !== this.currentFloor) return; // FIX: Only draw users on current floor
+            ctx.shadowBlur = 20;
+
+            // Highlight ME
+            if (user.id === this.myId) {
+                // Yellow ring for myself
+                ctx.strokeStyle = '#ffff00';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(user.x * gs, user.y * gs, gs, gs);
+
+                if (user.role === 'firefighter') {
+                    ctx.fillStyle = '#dc2626'; // Red for Firefighter ME
+                } else {
+                    ctx.fillStyle = '#3b82f6'; // Blue for Civilian ME
                 }
             } else {
-                ctx.strokeStyle = '#00ff9d'; // GREEN for Civilians
+                if (user.role === 'firefighter') {
+                    ctx.fillStyle = '#991b1b'; // Dark Red for Other Firefighters
+                } else {
+                    ctx.fillStyle = '#8b8b8b'; // Gray for others
+                }
             }
 
-            ctx.lineWidth = 4; // Thicker line for visibility
-            ctx.lineJoin = 'round';
-            ctx.shadowColor = ctx.strokeStyle;
-            ctx.shadowBlur = 10;
+            ctx.shadowColor = ctx.fillStyle;
             ctx.beginPath();
-            ctx.moveTo((user.path[0].x + 0.5) * gs, (user.path[0].y + 0.5) * gs);
-            for (let i = 1; i < user.path.length; i++) {
-                ctx.lineTo((user.path[i].x + 0.5) * gs, (user.path[i].y + 0.5) * gs);
+            ctx.arc((user.x + 0.5) * gs, (user.y + 0.5) * gs, gs / 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        ctx.shadowBlur = 0;
+    }
+
+    animate() {
+        this.draw();
+        requestAnimationFrame(() => this.animate());
+    }
+    unlockVoice() {
+        if ('speechSynthesis' in window) {
+            // Create a silent utterance to unlock the audio context if needed
+            // Some browsers require user interaction before playing audio
+            if (window.speechSynthesis.paused) {
+                window.speechSynthesis.resume();
             }
-            ctx.stroke();
-        }
-    });
-
-    // Draw All Users
-    this.users.forEach(user => {
-        if (user.floor !== this.currentFloor) return; // FIX: Only draw users on current floor
-        ctx.shadowBlur = 20;
-
-        // Highlight ME
-        if (user.id === this.myId) {
-            // Yellow ring for myself
-            ctx.strokeStyle = '#ffff00';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(user.x * gs, user.y * gs, gs, gs);
-
-            if (user.role === 'firefighter') {
-                ctx.fillStyle = '#dc2626'; // Red for Firefighter ME
-            } else {
-                ctx.fillStyle = '#3b82f6'; // Blue for Civilian ME
-            }
-        } else {
-            if (user.role === 'firefighter') {
-                ctx.fillStyle = '#991b1b'; // Dark Red for Other Firefighters
-            } else {
-                ctx.fillStyle = '#8b8b8b'; // Gray for others
-            }
-        }
-
-        ctx.shadowColor = ctx.fillStyle;
-        ctx.beginPath();
-        ctx.arc((user.x + 0.5) * gs, (user.y + 0.5) * gs, gs / 2.5, 0, Math.PI * 2);
-        ctx.fill();
-    });
-
-    ctx.shadowBlur = 0;
-}
-
-animate() {
-    this.draw();
-    requestAnimationFrame(() => this.animate());
-}
-unlockVoice() {
-    if ('speechSynthesis' in window) {
-        // Create a silent utterance to unlock the audio context if needed
-        // Some browsers require user interaction before playing audio
-        if (window.speechSynthesis.paused) {
-            window.speechSynthesis.resume();
         }
     }
-}
 
-setupRealWorld() {
-    // Real-World features (Map Upload & GPS) removed by user request
-}
+    setupRealWorld() {
+        // Real-World features (Map Upload & GPS) removed by user request
+    }
 
-isInBounds(x, y) {
-    return x >= 0 && x < this.width && y >= 0 && y < this.height;
-}
+    isInBounds(x, y) {
+        return x >= 0 && x < this.width && y >= 0 && y < this.height;
+    }
 }
 
 // Initialize
